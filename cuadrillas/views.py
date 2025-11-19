@@ -22,14 +22,21 @@ def crear_cuadrilla(request):
         
         nueva_cuadrilla = Cuadrilla.objects.create(nombre=nombre, proyecto=proyecto)
         return redirect('detalle_cuadrilla', id=nueva_cuadrilla.id)
+    
+    return redirect('dashboard')
 
 @login_required
 def detalle_cuadrilla(request, id):
     cuadrilla = get_object_or_404(Cuadrilla, id=id)
     miembros = MiembroCuadrilla.objects.filter(cuadrilla=cuadrilla)
     
+
     trabajadores_disponibles = Trabajador.objects.filter(disponibilidad='DISPONIBLE')
     roles_disponibles = Rol.objects.all()
+
+
+    todas_las_cuadrillas = Cuadrilla.objects.all()
+    opciones_disponibilidad = Trabajador.DISPONIBILIDAD
 
     if request.method == 'POST':
         trabajador_id = request.POST.get('trabajador')
@@ -38,13 +45,15 @@ def detalle_cuadrilla(request, id):
         if trabajador_id and rol_id:
             trabajador = get_object_or_404(Trabajador, pk=trabajador_id)
 
-            if trabajador.disponibilidad != 'DISPONIBLE':
-                messages.error(request, f"Error: El trabajador {trabajador.nombre_completo} ya fue asignado a otra cuadrilla recientemente.")
-                return redirect('detalle_cuadrilla', id=id)
+
+            relaciones_antiguas = MiembroCuadrilla.objects.filter(trabajador=trabajador)
             
-            if MiembroCuadrilla.objects.filter(trabajador=trabajador).exists():
-                 messages.error(request, f"Error: {trabajador.nombre_completo} ya pertenece a un equipo.")
-                 return redirect('detalle_cuadrilla', id=id)
+            if relaciones_antiguas.exists():
+                if trabajador.disponibilidad == 'DISPONIBLE':
+                    relaciones_antiguas.delete()
+                else:
+                    messages.error(request, f"Error: {trabajador.nombre_completo} ya pertenece a otro equipo.")
+                    return redirect('detalle_cuadrilla', id=id)
 
             rol = get_object_or_404(Rol, pk=rol_id)
             
@@ -53,6 +62,7 @@ def detalle_cuadrilla(request, id):
                 trabajador=trabajador,
                 rol=rol
             )
+            
             trabajador.disponibilidad = 'ASIGNADO'
             trabajador.save()
             
@@ -64,43 +74,24 @@ def detalle_cuadrilla(request, id):
         'cuadrilla': cuadrilla,
         'miembros': miembros,
         'trabajadores': trabajadores_disponibles,
-        'roles': roles_disponibles
+        'roles': roles_disponibles,               
+        'todas_las_cuadrillas': todas_las_cuadrillas,   
+        'opciones_disponibilidad': opciones_disponibilidad, 
     })
 
 @login_required
 def eliminar_miembro(request, miembro_id):
     miembro = get_object_or_404(MiembroCuadrilla, id=miembro_id)
     cuadrilla_id = miembro.cuadrilla.id
-
+    
     trabajador = miembro.trabajador
     trabajador.disponibilidad = 'DISPONIBLE'
     trabajador.save()
     
     miembro.delete()
+    
+    messages.success(request, f"{trabajador.nombre_completo} ha sido retirado y está disponible nuevamente.")
     return redirect('detalle_cuadrilla', id=cuadrilla_id)
-
-@login_required
-def detalle_cuadrilla(request, id):
-    cuadrilla = get_object_or_404(Cuadrilla, id=id)
-    miembros = MiembroCuadrilla.objects.filter(cuadrilla=cuadrilla)
-    
-    trabajadores_disponibles = Trabajador.objects.filter(disponibilidad='DISPONIBLE')
-    roles_disponibles = Rol.objects.all()
-    
-    todas_las_cuadrillas = Cuadrilla.objects.all()
-    opciones_disponibilidad = Trabajador.DISPONIBILIDAD
-
-    if request.method == 'POST':
-        pass 
-
-    return render(request, 'cuadrillas/detalle_cuadrilla.html', {
-        'cuadrilla': cuadrilla,
-        'miembros': miembros,
-        'trabajadores': trabajadores_disponibles,
-        'roles': roles_disponibles,
-        'todas_las_cuadrillas': todas_las_cuadrillas,
-        'opciones_disponibilidad': opciones_disponibilidad,
-    })
 
 @login_required
 def editar_miembro(request, miembro_id):
@@ -114,7 +105,6 @@ def editar_miembro(request, miembro_id):
 
         rol_lider = Rol.objects.filter(nombre_rol__icontains='Líder').first()
         if rol_lider and miembro.rol == rol_lider:
-        
             if int(nuevo_rol_id) != rol_lider.id or int(nueva_cuadrilla_id) != cuadrilla_actual_id:
                 otros_lideres = MiembroCuadrilla.objects.filter(
                     cuadrilla_id=cuadrilla_actual_id, 
@@ -131,12 +121,11 @@ def editar_miembro(request, miembro_id):
         trabajador.disponibilidad = nuevo_estado
         trabajador.save()
 
+        msg_extra = ""
         if int(nueva_cuadrilla_id) != cuadrilla_actual_id:
             nueva_cuadrilla = get_object_or_404(Cuadrilla, id=nueva_cuadrilla_id)
             miembro.cuadrilla = nueva_cuadrilla
             msg_extra = f" y movido a la cuadrilla '{nueva_cuadrilla.nombre}'"
-        else:
-            msg_extra = ""
 
         miembro.save()
 

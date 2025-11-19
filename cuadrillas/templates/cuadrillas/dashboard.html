@@ -1,0 +1,64 @@
+{% extends 'cuadrillas/base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Panel de Control de Obras</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <button type="button" class="btn btn-construct" data-bs-toggle="modal" data-bs-target="#crearCuadrillaModal">
+            <i class="bi bi-plus-lg"></i> Nueva Cuadrilla
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    {% for c in cuadrillas %}
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm h-100 border-start border-warning border-4">
+            <div class="card-body">
+                <h5 class="card-title fw-bold">{{ c.nombre }}</h5>
+                <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-geo-alt"></i> {{ c.proyecto.nombre }}</h6>
+                <p class="card-text small">
+                    Estado: <span class="badge bg-success">{{ c.proyecto.get_estado_display }}</span><br>
+                    Miembros: <strong>{{ c.miembros.count }}</strong>
+                </p>
+                <a href="{% url 'detalle_cuadrilla' c.id %}" class="btn btn-outline-dark btn-sm w-100">Gestionar Equipo</a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="alert alert-info">No hay cuadrillas activas. ¡Crea una nueva!</div>
+    {% endfor %}
+</div>
+
+<div class="modal fade" id="crearCuadrillaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{% url 'crear_cuadrilla' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">Crear Nueva Cuadrilla</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre de la Cuadrilla</label>
+                        <input type="text" name="nombre" class="form-control" placeholder="Ej: Cuadrilla Albañilería A" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Asignar a Proyecto</label>
+                        <select name="proyecto" class="form-select" required>
+                            {% for p in proyectos %}
+                            <option value="{{ p.id }}">{{ p.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-construct">Guardar Cuadrilla</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

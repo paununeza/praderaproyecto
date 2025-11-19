@@ -1,0 +1,19 @@
+<body class="container mt-4">
+    <h2>Crear Nueva Cuadrilla</h2>
+    <form method="POST">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label>Nombre de la Cuadrilla</label>
+            <input type="text" name="nombre" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label>Proyecto Asignado</label>
+            <select name="proyecto" class="form-select">
+                {% for p in proyectos %}
+                <option value="{{ p.id }}">{{ p.nombre }} - {{ p.zona }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-success">Crear y Asignar Miembros</button>
+    </form>
+</body>

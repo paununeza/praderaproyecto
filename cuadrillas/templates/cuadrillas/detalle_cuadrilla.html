@@ -28,39 +28,117 @@
                 <table class="table table-hover table-striped mb-0 align-middle">
                     <thead class="table-dark">
                         <tr>
-                            <th>Trabajador</th>
-                            <th>Especialidad</th>
-                            <th>Rol Asignado</th>
-                            <th class="text-end">Acciones</th>
-                        </tr>
+                            <th style="width: 35%;">Trabajador</th>
+                            <th style="width: 20%;">Especialidad</th> <th style="width: 25%;">Rol Asignado</th> <th class="text-end" style="width: 20%;">Acciones</th> </tr>
                     </thead>
                     <tbody>
                         {% for m in miembros %}
                         <tr>
                             <td>
                                 <div class="fw-bold">{{ m.trabajador.nombre_completo }}</div>
-                                <small class="text-muted">@{{ m.trabajador.usuario.username }}</small>
+                                
+                                <div class="mt-1">
+                                    {% if m.trabajador.disponibilidad == 'ASIGNADO' %}
+                                        <span class="badge bg-success text-white border border-light shadow-sm" style="font-size: 0.75em;">
+                                            <i class="bi bi-circle-fill" style="font-size: 0.6em;"></i> Activo
+                                        </span>
+                                    {% elif m.trabajador.disponibilidad == 'NO_DISPONIBLE' %}
+                                        <span class="badge bg-danger text-white border border-light shadow-sm" style="font-size: 0.75em;">
+                                            <i class="bi bi-x-circle-fill" style="font-size: 0.6em;"></i> Licencia/Baja
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary text-white border border-light shadow-sm" style="font-size: 0.75em;">
+                                            <i class="bi bi-dash-circle" style="font-size: 0.6em;"></i> {{ m.trabajador.disponibilidad }}
+                                        </span>
+                                    {% endif %}
+                                </div>
                             </td>
-                            <td><span class="badge bg-info text-dark">{{ m.trabajador.especialidad }}</span></td>
+
+                            <td>
+                                <span class="badge bg-info text-dark bg-opacity-25 border border-info">
+                                    {{ m.trabajador.especialidad }}
+                                </span>
+                            </td>
+
                             <td>
                                 {% if "Líder" in m.rol.nombre_rol %} 
-                                    <span class="badge bg-warning text-dark">⭐ {{ m.rol.nombre_rol }}</span>
+                                    <span class="badge bg-warning text-dark border border-warning">
+                                        <i class="bi bi-star-fill"></i> {{ m.rol.nombre_rol }}
+                                    </span>
                                 {% else %}
-                                    {{ m.rol.nombre_rol }}
+                                    <span class="text-muted">{{ m.rol.nombre_rol }}</span>
                                 {% endif %}
                             </td>
+                            
                             <td class="text-end">
-                                <a href="{% url 'eliminar_miembro' m.id %}" 
-                                   class="btn btn-outline-danger btn-sm"
-                                   onclick="return confirm('¿Estás seguro de sacar a este trabajador de la cuadrilla? Volverá a estar disponible.')">
-                                    <i class="bi bi-x-lg"></i> Baja
-                                </a>
+                                <button type="button" class="btn btn-primary btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#editarMiembroModal-{{ m.id }}">
+                                    <i class="bi bi-pencil-square"></i> Editar
+                                </button>
                             </td>
                         </tr>
+
+                        <div class="modal fade" id="editarMiembroModal-{{ m.id }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form action="{% url 'editar_miembro' m.id %}" method="POST">
+                                        {% csrf_token %}
+                                        <div class="modal-header bg-primary text-white">
+                                            <h5 class="modal-title">Gestionar: {{ m.trabajador.nombre_completo }}</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body text-start">
+                                            
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Rol en la cuadrilla</label>
+                                                <select name="nuevo_rol" class="form-select">
+                                                    {% for r in roles %}
+                                                    <option value="{{ r.id }}" {% if m.rol.id == r.id %}selected{% endif %}>
+                                                        {{ r.nombre_rol }}
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Estado del Trabajador</label>
+                                                <select name="nuevo_estado" class="form-select">
+                                                    {% for codigo, nombre in opciones_disponibilidad %}
+                                                    <option value="{{ codigo }}" {% if m.trabajador.disponibilidad == codigo %}selected{% endif %}>
+                                                        {{ nombre }}
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Cuadrilla Asignada</label>
+                                                <select name="nueva_cuadrilla" class="form-select bg-light border-primary">
+                                                    {% for c in todas_las_cuadrillas %}
+                                                    <option value="{{ c.id }}" {% if m.cuadrilla.id == c.id %}selected{% endif %}>
+                                                        {{ c.nombre }} {% if m.cuadrilla.id == c.id %}(Actual){% endif %}
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                                <div class="form-text text-muted small">
+                                                    <i class="bi bi-info-circle"></i> Al cambiar la cuadrilla, el trabajador desaparecerá de esta lista inmediatamente.
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                        <div class="modal-footer d-flex justify-content-between">
+                                            <a href="{% url 'eliminar_miembro' m.id %}" class="btn btn-outline-danger" onclick="return confirm('¿Dar de baja definitiva de la cuadrilla?')">
+                                                <i class="bi bi-person-x"></i> Dar de Baja
+                                            </a>
+                                            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
                         {% empty %}
                         <tr>
                             <td colspan="4" class="text-center py-4 text-muted">
-                                <i class="bi bi-inbox fs-1"></i><br>
+                                <i class="bi bi-people fs-1 opacity-50"></i><br>
                                 No hay trabajadores asignados a esta cuadrilla.
                             </td>
                         </tr>

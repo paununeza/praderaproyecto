@@ -78,3 +78,70 @@ def eliminar_miembro(request, miembro_id):
     
     miembro.delete()
     return redirect('detalle_cuadrilla', id=cuadrilla_id)
+
+@login_required
+def detalle_cuadrilla(request, id):
+    cuadrilla = get_object_or_404(Cuadrilla, id=id)
+    miembros = MiembroCuadrilla.objects.filter(cuadrilla=cuadrilla)
+    
+    trabajadores_disponibles = Trabajador.objects.filter(disponibilidad='DISPONIBLE')
+    roles_disponibles = Rol.objects.all()
+    
+    todas_las_cuadrillas = Cuadrilla.objects.all()
+    opciones_disponibilidad = Trabajador.DISPONIBILIDAD
+
+    if request.method == 'POST':
+        pass 
+
+    return render(request, 'cuadrillas/detalle_cuadrilla.html', {
+        'cuadrilla': cuadrilla,
+        'miembros': miembros,
+        'trabajadores': trabajadores_disponibles,
+        'roles': roles_disponibles,
+        'todas_las_cuadrillas': todas_las_cuadrillas,
+        'opciones_disponibilidad': opciones_disponibilidad,
+    })
+
+@login_required
+def editar_miembro(request, miembro_id):
+    miembro = get_object_or_404(MiembroCuadrilla, id=miembro_id)
+    cuadrilla_actual_id = miembro.cuadrilla.id
+    
+    if request.method == 'POST':
+        nuevo_rol_id = request.POST.get('nuevo_rol')
+        nuevo_estado = request.POST.get('nuevo_estado')
+        nueva_cuadrilla_id = request.POST.get('nueva_cuadrilla')
+
+        rol_lider = Rol.objects.filter(nombre_rol__icontains='Líder').first()
+        if rol_lider and miembro.rol == rol_lider:
+        
+            if int(nuevo_rol_id) != rol_lider.id or int(nueva_cuadrilla_id) != cuadrilla_actual_id:
+                otros_lideres = MiembroCuadrilla.objects.filter(
+                    cuadrilla_id=cuadrilla_actual_id, 
+                    rol=rol_lider
+                ).exclude(id=miembro_id).count()
+                
+                if otros_lideres == 0:
+                    messages.error(request, "No se pueden guardar los cambios: La cuadrilla debe tener al menos un Líder.")
+                    return redirect('detalle_cuadrilla', id=cuadrilla_actual_id)
+
+        miembro.rol = get_object_or_404(Rol, id=nuevo_rol_id)
+        
+        trabajador = miembro.trabajador
+        trabajador.disponibilidad = nuevo_estado
+        trabajador.save()
+
+        if int(nueva_cuadrilla_id) != cuadrilla_actual_id:
+            nueva_cuadrilla = get_object_or_404(Cuadrilla, id=nueva_cuadrilla_id)
+            miembro.cuadrilla = nueva_cuadrilla
+            msg_extra = f" y movido a la cuadrilla '{nueva_cuadrilla.nombre}'"
+        else:
+            msg_extra = ""
+
+        miembro.save()
+
+        messages.success(request, f"Cambios guardados.{msg_extra} Los trabajadores han sido notificados.")
+        
+        return redirect('detalle_cuadrilla', id=cuadrilla_actual_id)
+
+    return redirect('detalle_cuadrilla', id=cuadrilla_actual_id)

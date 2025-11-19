@@ -11,4 +11,5 @@ urlpatterns = [
     path('crear-cuadrilla/', views.crear_cuadrilla, name='crear_cuadrilla'),
     path('cuadrilla/<int:id>/', views.detalle_cuadrilla, name='detalle_cuadrilla'),
     path('miembro/eliminar/<int:miembro_id>/', views.eliminar_miembro, name='eliminar_miembro'),
+    path('miembro/editar/<int:miembro_id>/', views.editar_miembro, name='editar_miembro'),
 ]

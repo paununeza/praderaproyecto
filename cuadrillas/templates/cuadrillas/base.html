@@ -23,7 +23,7 @@
             </a>
             <div class="d-flex text-white">
                 <span class="me-3"><i class="bi bi-person-circle"></i> Hola, {{ user.username }}</span>
-                <a href="/admin/logout/" class="text-warning text-decoration-none">Salir</a>
+                <a href="{% url 'logout' %}" class="text-warning text-decoration-none">Salir</a>
             </div>
         </div>
     </nav>

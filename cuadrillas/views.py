@@ -1,24 +1,44 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
+from django.contrib.auth import logout
 from .models import Cuadrilla, Proyecto, Trabajador, MiembroCuadrilla, Rol
 
 @login_required
 def dashboard(request):
-    cuadrillas = Cuadrilla.objects.all()
-    proyectos = Proyecto.objects.all()
+    usuario = request.user
+
+    if usuario.is_superuser:
+        cuadrillas = Cuadrilla.objects.all()
+        proyectos = Proyecto.objects.all()
+    else:
+        proyectos = Proyecto.objects.filter(jefe_proyecto=usuario)
+        cuadrillas = Cuadrilla.objects.filter(proyecto__in=proyectos)
     
+    es_jefe = usuario.is_superuser or (hasattr(usuario, 'perfil') and usuario.perfil.rol_sistema == 'JEFE')
+
     return render(request, 'cuadrillas/dashboard.html', {
         'cuadrillas': cuadrillas,
-        'proyectos': proyectos
+        'proyectos': proyectos,
+        'es_jefe': es_jefe,
     })
 
 @login_required
 def crear_cuadrilla(request):
+    es_jefe = request.user.is_superuser or (hasattr(request.user, 'perfil') and request.user.perfil.rol_sistema == 'JEFE')
+    if not es_jefe:
+        messages.error(request, "No tienes permisos para crear cuadrillas.")
+        return redirect('dashboard')
+    
     if request.method == 'POST':
         nombre = request.POST['nombre']
         proyecto_id = request.POST['proyecto']
-        proyecto = get_object_or_404(Proyecto, pk=proyecto_id)
+
+        if request.user.is_superuser:
+             proyecto = get_object_or_404(Proyecto, pk=proyecto_id)
+        else:
+             proyecto = get_object_or_404(Proyecto, pk=proyecto_id, jefe_proyecto=request.user)
         
         nueva_cuadrilla = Cuadrilla.objects.create(nombre=nombre, proyecto=proyecto)
         return redirect('detalle_cuadrilla', id=nueva_cuadrilla.id)
@@ -28,6 +48,13 @@ def crear_cuadrilla(request):
 @login_required
 def detalle_cuadrilla(request, id):
     cuadrilla = get_object_or_404(Cuadrilla, id=id)
+
+    if not request.user.is_superuser and cuadrilla.proyecto.jefe_proyecto != request.user:
+        messages.error(request, "Acceso denegado: No eres el Jefe de este proyecto.")
+        return redirect('dashboard')
+    
+    es_jefe_o_admin = request.user.is_superuser or cuadrilla.proyecto.jefe_proyecto == request.user
+
     miembros = MiembroCuadrilla.objects.filter(cuadrilla=cuadrilla)
     
 
@@ -76,12 +103,18 @@ def detalle_cuadrilla(request, id):
         'trabajadores': trabajadores_disponibles,
         'roles': roles_disponibles,               
         'todas_las_cuadrillas': todas_las_cuadrillas,   
-        'opciones_disponibilidad': opciones_disponibilidad, 
+        'opciones_disponibilidad': opciones_disponibilidad,
+        'es_autorizado': es_jefe_o_admin,
     })
 
 @login_required
 def eliminar_miembro(request, miembro_id):
     miembro = get_object_or_404(MiembroCuadrilla, id=miembro_id)
+
+    if not request.user.is_superuser and miembro.cuadrilla.proyecto.jefe_proyecto != request.user:
+        messages.error(request, "No tienes permisos para modificar esta cuadrilla.")
+        return redirect('dashboard')
+
     cuadrilla_id = miembro.cuadrilla.id
     
     trabajador = miembro.trabajador
@@ -96,6 +129,11 @@ def eliminar_miembro(request, miembro_id):
 @login_required
 def editar_miembro(request, miembro_id):
     miembro = get_object_or_404(MiembroCuadrilla, id=miembro_id)
+
+    if not request.user.is_superuser and miembro.cuadrilla.proyecto.jefe_proyecto != request.user:
+        messages.error(request, "No tienes permisos.")
+        return redirect('dashboard')
+
     cuadrilla_actual_id = miembro.cuadrilla.id
     
     if request.method == 'POST':
@@ -134,3 +172,7 @@ def editar_miembro(request, miembro_id):
         return redirect('detalle_cuadrilla', id=cuadrilla_actual_id)
 
     return redirect('detalle_cuadrilla', id=cuadrilla_actual_id)
+
+def cerrar_sesion(request):
+    logout(request)
+    return redirect('login')

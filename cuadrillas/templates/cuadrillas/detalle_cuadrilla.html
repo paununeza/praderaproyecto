@@ -21,22 +21,25 @@
 <div class="row">
     <div class="col-lg-8">
         <div class="card shadow-sm">
-            <div class="card-header bg-light fw-bold">
-                Miembros Actuales
+            <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
+                <span>Miembros Actuales</span>
+                <span class="badge bg-dark">{{ miembros.count }} Trabajadores</span>
             </div>
             <div class="card-body p-0">
                 <table class="table table-hover table-striped mb-0 align-middle">
                     <thead class="table-dark">
                         <tr>
                             <th style="width: 35%;">Trabajador</th>
-                            <th style="width: 20%;">Especialidad</th> <th style="width: 25%;">Rol Asignado</th> <th class="text-end" style="width: 20%;">Acciones</th> </tr>
+                            <th style="width: 20%;">Especialidad</th>
+                            <th style="width: 25%;">Rol Asignado</th>
+                            <th class="text-end" style="width: 20%;">Acciones</th>
+                        </tr>
                     </thead>
                     <tbody>
                         {% for m in miembros %}
                         <tr>
                             <td>
                                 <div class="fw-bold">{{ m.trabajador.nombre_completo }}</div>
-                                
                                 <div class="mt-1">
                                     {% if m.trabajador.disponibilidad == 'ASIGNADO' %}
                                         <span class="badge bg-success text-white border border-light shadow-sm" style="font-size: 0.75em;">
@@ -48,7 +51,7 @@
                                         </span>
                                     {% else %}
                                         <span class="badge bg-secondary text-white border border-light shadow-sm" style="font-size: 0.75em;">
-                                            <i class="bi bi-dash-circle" style="font-size: 0.6em;"></i> {{ m.trabajador.disponibilidad }}
+                                            <i class="bi bi-dash-circle" style="font-size: 0.6em;"></i> {{ m.trabajador.get_disponibilidad_display }}
                                         </span>
                                     {% endif %}
                                 </div>
@@ -71,9 +74,13 @@
                             </td>
                             
                             <td class="text-end">
-                                <button type="button" class="btn btn-primary btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#editarMiembroModal-{{ m.id }}">
-                                    <i class="bi bi-pencil-square"></i> Editar
-                                </button>
+                                {% if es_autorizado %}
+                                    <button type="button" class="btn btn-primary btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#editarMiembroModal-{{ m.id }}">
+                                        <i class="bi bi-pencil-square"></i> Editar
+                                    </button>
+                                {% else %}
+                                    <span class="text-muted small"><i class="bi bi-lock"></i> Ver</span>
+                                {% endif %}
                             </td>
                         </tr>
 
@@ -126,7 +133,7 @@
 
                                         </div>
                                         <div class="modal-footer d-flex justify-content-between">
-                                            <a href="{% url 'eliminar_miembro' m.id %}" class="btn btn-outline-danger" onclick="return confirm('¿Dar de baja definitiva de la cuadrilla?')">
+                                            <a href="{% url 'eliminar_miembro' m.id %}" class="btn btn-outline-danger" onclick="return confirm('¿Dar de baja definitiva de la cuadrilla? El trabajador quedará DISPONIBLE.')">
                                                 <i class="bi bi-person-x"></i> Dar de Baja
                                             </a>
                                             <button type="submit" class="btn btn-primary">Guardar Cambios</button>
@@ -150,51 +157,58 @@
     </div>
 
     <div class="col-lg-4">
-        <div class="card border-warning shadow-sm">
-            <div class="card-header bg-warning text-dark fw-bold">
-                <i class="bi bi-person-plus-fill"></i> Asignar Nuevo Miembro
-            </div>
-            <div class="card-body">
-                <form method="POST">
-                    {% csrf_token %}
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">1. Seleccionar Trabajador</label>
-                        <select name="trabajador" class="form-select" size="5" required>
-                            {% for t in trabajadores %}
-                            <option value="{{ t.pk }}">
-                                {{ t.nombre_completo }} ({{ t.especialidad }})
-                            </option>
-                            {% empty %}
-                            <option disabled>No hay personal disponible</option>
-                            {% endfor %}
-                        </select>
-                        <div class="form-text">Solo se muestran trabajadores con estado "DISPONIBLE".</div>
-                    </div>
+        {% if es_autorizado %}
+            <div class="card border-warning shadow-sm">
+                <div class="card-header bg-warning text-dark fw-bold">
+                    <i class="bi bi-person-plus-fill"></i> Asignar Nuevo Miembro
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">1. Seleccionar Trabajador</label>
+                            <select name="trabajador" class="form-select" size="10" required>
+                                {% for t in trabajadores %}
+                                <option value="{{ t.pk }}">
+                                    {{ t.nombre_completo }} ({{ t.especialidad }})
+                                </option>
+                                {% empty %}
+                                <option disabled>No hay personal disponible</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Solo se muestran trabajadores "DISPONIBLE".</div>
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">2. Asignar Rol</label>
-                        <select name="rol" class="form-select" required>
-                            <option value="" selected>-- Seleccionar Rol --</option>
-                            {% for r in roles %}
-                            <option value="{{ r.id }}">{{ r.nombre_rol }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">2. Asignar Rol</label>
+                            <select name="rol" class="form-select" required>
+                                <option value="" selected>-- Seleccionar Rol --</option>
+                                {% for r in roles %}
+                                <option value="{{ r.id }}">{{ r.nombre_rol }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
 
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-dark">Asignar a la Cuadrilla</button>
-                    </div>
-                </form>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-dark">Asignar a la Cuadrilla</button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </div>
-        
-        <div class="card mt-3 bg-light border-0">
-            <div class="card-body small text-muted">
-                <i class="bi bi-info-circle-fill"></i> 
-                Desde este panel puedes gestionar los miembros de la cuadrilla, asignar roles y dar de baja trabajadores cuando sea necesario.
+            
+            <div class="card mt-3 bg-light border-0">
+                <div class="card-body small text-muted">
+                    <i class="bi bi-info-circle-fill"></i> 
+                    Al asignar un trabajador, su estado cambiará automáticamente a "ASIGNADO".
+                </div>
             </div>
-        </div>
+        {% else %}
+            <div class="alert alert-warning shadow-sm">
+                <h5 class="alert-heading"><i class="bi bi-shield-lock-fill"></i> Modo Lectura</h5>
+                <p class="mb-0">No tienes permisos para modificar esta cuadrilla porque no eres el Jefe de este Proyecto.</p>
+            </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
